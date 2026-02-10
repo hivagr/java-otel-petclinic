@@ -1,0 +1,183 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: java-otel-petclinic
+  name: java-otel-petclinic
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-otel-petclinic
+  namespace: java-otel-petclinic
+  labels:
+    app: java-otel-petclinic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-otel-petclinic
+  template:
+    metadata:
+      labels:
+        app: java-otel-petclinic
+    spec:
+      containers:
+        - name: java-otel-petclinic
+          image: hiddevg/java-otel-petclinic:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_SERVICE_NAME
+              value: java-otel-petclinic
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4317
+            - name: OTEL_METRICS_EXPORTER
+              value: otlp
+            - name: OTEL_LOGS_EXPORTER
+              value: otlp
+            - name: OTEL_PROPAGATORS
+              value: tracecontext,baggage
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.instance.id=petclinic-pod,service.name=$(OTEL_SERVICE_NAME),service.namespace=java-otel-petclinic,deployment.environment.name=dev,service.version=0.1.0
+            - name: SPRING_PROFILES_ACTIVE
+              value: postgres
+            - name: POSTGRES_URL
+              value: jdbc:postgresql://demo-db:5432/petclinic
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: username
+            - name: POSTGRES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: password
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-otel-petclinic
+  namespace: java-otel-petclinic
+  labels:
+    app: java-otel-petclinic
+spec:
+  type: ClusterIP
+  selector:
+    app: java-otel-petclinic
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-db
+  namespace: java-otel-petclinic
+type: servicebinding.io/postgresql
+stringData:
+  type: "postgresql"
+  provider: "postgresql"
+  host: "demo-db"
+  port: "5432"
+  database: "petclinic"
+  username: "user"
+  password: "pass"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-db
+  namespace: java-otel-petclinic
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: demo-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-db
+  namespace: java-otel-petclinic
+  labels:
+    app: demo-db
+spec:
+  selector:
+    matchLabels:
+      app: demo-db
+  template:
+    metadata:
+      labels:
+        app: demo-db
+    spec:
+      containers:
+        - image: postgres:18.1
+          name: postgresql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: database
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          livenessProbe:
+            tcpSocket:
+              port: postgresql
+          readinessProbe:
+            tcpSocket:
+              port: postgresql
+          startupProbe:
+            tcpSocket:
+              port: postgresql
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
