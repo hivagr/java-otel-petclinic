@@ -57,7 +57,7 @@ RUN java -Djarmode=layertools -jar target/app.jar extract --destination target/e
 ################################################################################
 
 # Add Grafana OTEL agent
-ARG OTEL_JAVA_AGENT_VERSION=2.23.1
+ARG OTEL_JAVA_AGENT_VERSION=2.32.0
 RUN curl -fsSL -o grafana-opentelemetry-java.jar \
     https://github.com/grafana/grafana-opentelemetry-java/releases/download/v${OTEL_JAVA_AGENT_VERSION}/grafana-opentelemetry-java.jar
 

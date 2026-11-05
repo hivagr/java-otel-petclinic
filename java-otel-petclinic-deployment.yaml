@@ -31,6 +31,24 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+#            - name: OTEL_INSTRUMENTATION_MICROMETER_BASE_TIME_UNIT
+#              value: s
+#            - name: OTEL_INSTRUMENTATION_LOG4J_APPENDER_EXPERIMENTAL_LOG_ATTRIBUTES
+#              value: "true"
+#            - name: OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_LOG_ATTRIBUTES
+#              value: "true"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: grpc
             - name: OTEL_SERVICE_NAME
@@ -45,10 +63,12 @@ spec:
               value: otlp
             - name: OTEL_PROPAGATORS
               value: tracecontext,baggage
+            - name: OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED
+              value: "true"
             - name: OTEL_EXPORTER_OTLP_INSECURE
               value: "true"
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.instance.id=petclinic-pod,service.name=$(OTEL_SERVICE_NAME),service.namespace=java-otel-petclinic,deployment.environment.name=dev,service.version=0.1.0
+              value: service.instance.id=petclinic-pod,service.name=$(OTEL_SERVICE_NAME),k8s.pod.name=$(K8S_POD_NAME),service.namespace=$(K8S_NAMESPACE_NAME),k8s.node.name=$(K8S_NODE_NAME),deployment.environment.name=dev,service.version=0.1.0
             - name: SPRING_PROFILES_ACTIVE
               value: postgres
             - name: POSTGRES_URL
